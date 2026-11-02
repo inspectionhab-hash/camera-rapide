@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<title>Caméra rapide — Inspection Habitation Outaouais</title>
+<style>
+:root{--fg:#f4f5f7;--muted:#aeb4c0;--bg:#000;--card:#16181d;--card2:#23262d;--line:#33373f;--accent:#ff6a1a;--red:#ff2d2d;--ok:#1f8a4c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font:16px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overscroll-behavior:none}
+button,label.b{font:inherit;cursor:pointer;border:0;border-radius:12px;color:var(--fg);background:var(--card2);user-select:none}
+input,textarea{font:inherit;width:100%;padding:12px;border:2px solid var(--line);border-radius:12px;background:var(--card2);color:var(--fg)}
+textarea{min-height:96px;resize:vertical}
+.hidden{display:none!important}
+.muted{color:var(--muted);font-size:14px}
+.btn{padding:13px 16px;font-weight:700;background:var(--accent);color:#fff}
+.btn.sec{background:var(--card2);color:var(--fg)}
+.btn.danger{background:#5c1414;color:#ffd6d6}
+.row{display:flex;gap:8px;align-items:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+.list button{display:block;width:100%;text-align:left;background:var(--card2);padding:13px;margin-bottom:8px;font-size:16px}
+.list button small{display:block;color:var(--muted);font-size:13px}
+.page{padding:12px 12px 120px;max-width:900px;margin:0 auto}
+.top{position:sticky;top:0;z-index:5;background:#000;border-bottom:1px solid var(--line);padding:calc(10px + env(safe-area-inset-top)) 12px 10px;display:flex;align-items:center;gap:10px}
+.top h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top button{padding:9px 12px;font-size:15px}
+.empty{text-align:center;color:var(--muted);padding:26px 10px}
+.warn{background:#3a2a00;color:#ffe4a3;border:1px solid #f0b400;border-radius:12px;padding:12px;margin-bottom:12px}
+/* Caméra */
+#cam{position:fixed;inset:0;background:#000;z-index:10;display:flex;flex-direction:column}
+#vf{position:relative;flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#video{width:100%;height:100%;object-fit:contain;transform-origin:center center;background:#000}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .12s}
+#camTop{position:absolute;left:0;right:0;top:0;padding:calc(8px + env(safe-area-inset-top)) 8px 8px;display:flex;gap:8px;align-items:flex-start;z-index:2}
+#banner{flex:1;border-radius:12px;padding:9px 12px;font-weight:700;font-size:15px;background:rgba(0,0,0,.6);color:#fff;min-height:44px}
+#banner.on{background:rgba(255,106,26,.92)}
+#banner small{display:block;font-weight:500;font-size:13px;opacity:.95}
+#camTop button{background:rgba(0,0,0,.6);color:#fff;padding:10px 12px;font-weight:700;min-height:44px}
+#zoom{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;z-index:2}
+#zoom button{width:52px;height:52px;border-radius:50%;background:rgba(0,0,0,.55);color:#fff;font-weight:800;font-size:15px;border:2px solid rgba(255,255,255,.35)}
+#zoom button.on{background:#fff;color:#000;border-color:#fff}
+#count{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;padding:5px 10px;font-size:14px;font-weight:700;z-index:2}
+#camMsg{position:absolute;left:12px;right:12px;top:40%;text-align:center;color:#fff;z-index:2}
+#camBot{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:#000}
+#camBot .side{display:flex;flex-direction:column;gap:8px}
+#camBot .side button{padding:12px 6px;font-weight:700;font-size:15px;min-height:50px}
+#shutter{width:86px;height:86px;border-radius:50%;background:#fff;border:6px solid #ff6a1a;box-shadow:0 0 0 3px #000 inset}
+#shutter:active{transform:scale(.93)}
+#lastThumb{width:54px;height:54px;border-radius:10px;object-fit:cover;background:#222;border:2px solid #444}
+/* Feuilles et éditeur */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);color:var(--fg);border-top:1px solid var(--line);width:100%;max-width:640px;max-height:88vh;overflow:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 10px;font-size:19px}
+.thumbs{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.ph{position:relative;height:92px;border-radius:8px;overflow:hidden;background:#333;flex:0 0 auto}
+.ph img,.stage img{width:100%;height:100%;display:block}
+.ph svg,.stage svg{position:absolute;inset:0;width:100%;height:100%}
+.cHead{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.cHead .t{font-weight:700}
+.cHead button{padding:8px 10px;font-size:14px}
+.editor{position:fixed;inset:0;background:#000;z-index:50;display:flex;flex-direction:column}
+.editor .tb{display:flex;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 10px 10px;background:#111;flex-wrap:wrap}
+.editor .tb button{padding:11px 13px;font-weight:700;font-size:15px}
+.editor .tb button.on{background:var(--red);color:#fff}
+.editor .wrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none}
+.stage{position:relative;touch-action:none}
+.editor .bb{display:flex;gap:8px;padding:10px 10px calc(10px + env(safe-area-inset-bottom));background:#111;flex-wrap:wrap}
+.editor .bb button{flex:1;padding:12px;font-weight:700;min-width:110px}
+.editor .bb .done{background:var(--accent);color:#fff}
+.editor .info{color:#cfd3dc;font-size:13px;padding:0 12px 6px;background:#111}
+.toast{position:fixed;left:50%;bottom:150px;transform:translateX(-50%);background:#111;border:1px solid #444;color:#fff;padding:10px 16px;border-radius:12px;z-index:60;font-size:15px;max-width:90vw;text-align:center}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="cam" class="hidden">
+<div id="vf">
+<video id="video" playsinline muted autoplay></video>
+<div id="flash"></div>
+<div id="camTop">
+<button id="camBack">◀</button>
+<div id="banner"></div>
+<button id="camDone" class="hidden">Terminé</button>
+</div>
+<div id="zoom"></div>
+<div id="count">0</div>
+<div id="camMsg" class="hidden"></div>
+</div>
+<div id="camBot">
+<div class="side">
+<button id="camConstat">+ Constat</button>
+<button id="camGallery" style="display:flex;align-items:center;gap:8px;justify-content:center;padding:4px"><img id="lastThumb" alt=""><span>Photos</span></button>
+</div>
+<button id="shutter" aria-label="Prendre la photo"></button>
+<div class="side">
+<button id="camJoin">Joindre</button>
+<button id="camFin">Envoyer</button>
+</div>
+</div>
+</div>
+<input id="nativeInput" type="file" accept="image/*" capture="environment" style="position:fixed;left:-9999px;width:1px;height:1px;opacity:0">
+<div id="layer"></div>
+<script>
+(() => {
+'use strict';
+const RED = '#ff2d2d', MAXDIM = 2400, ZOOMS = [0.6, 1, 2, 3, 5, 10];
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const newId = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const S = { view:'home', iid:null, insp:null, inspections:[], constats:new Map(), photos:new Map(),
+activeId:null, niveau:'Extérieur', precision:'', urls:new Map(), wake:null };
+const LS = { get(k,d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }, set(k,v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} } };
+let dbp = null;
+function db(){
+if (dbp) return dbp;
+dbp = new Promise((res, rej) => {
+const r = indexedDB.open('camera-rapide', 1);
+r.onupgradeneeded = () => {
+const d = r.result;
+d.createObjectStore('insp', {keyPath:'id'});
+d.createObjectStore('constats', {keyPath:'id'}).createIndex('iid', 'iid');
+d.createObjectStore('photos', {keyPath:'id'}).createIndex('iid', 'iid');
+};
+r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+});
+return dbp;
+}
+async function tx(store, mode, fn){
+const d = await db();
+return new Promise((res, rej) => {
+const t = d.transaction(store, mode), st = t.objectStore(store); let out;
+const r = fn(st); if (r) r.onsuccess = () => { out = r.result; };
+t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error);
+});
+}
+const put = (s, o) => tx(s, 'readwrite', st => st.put(o));
+const del = (s, k) => tx(s, 'readwrite', st => st.delete(k));
+const all = s => tx(s, 'readonly', st => st.getAll());
+const byIid = (s, iid) => tx(s, 'readonly', st => st.index('iid').getAll(iid));
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+function parseZone(text){
+const t = ' ' + String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ';
+const has = re => re.test(t);
+let niv = null, prec = '';
+if (has(/ sous sol /)) niv = 'Sous-sol';
+else if (has(/ (comble|entretoit|grenier) /)) niv = 'Comble';
+else if (has(/ garage /)) niv = 'Garage';
+else if (has(/ (toiture|toit|bardeaux?|gouttieres?|descente pluviale) /)) niv = 'Toiture';
+else if (has(/ (rez de chaussee|rdc|premier plancher) /)) niv = 'Rez-de-chaussée';
+else if (has(/ (etage|deuxieme) /)) niv = 'Étage';
+else if (has(/ (exterieur|exterieure|facade|terrain|terrasse|balcon|perron) /)) niv = 'Extérieur';
+const f = t.match(/ (avant|arriere|gauche|droite|droit) /);
+if (f && (!niv || niv === 'Extérieur' || niv === 'Toiture')){
+if (!niv) niv = 'Extérieur';
+prec = 'Façade ' + ({droit:'droite'}[f[1]] || f[1]).replace('arriere', 'arrière');
+}
+const pieces = [['salle mecanique','Salle mécanique'],['salle de bain','Salle de bain'],['salle de lavage','Salle de lavage'],['buanderie','Buanderie'],['cuisine','Cuisine'],['salon','Salon'],['salle a manger','Salle à manger'],['chambre froide','Chambre froide'],['chambre','Chambre'],['corridor','Corridor'],['couloir','Corridor'],['escalier','Escalier'],['entree','Entrée'],['vestibule','Vestibule'],['bureau','Bureau']];
+const neutral = ['Escalier','Entrée'];
+if (!prec){ for (const [k, v] of pieces){ if (t.includes(' ' + k + ' ')){ prec = v; break; } } }
+if (!niv && !prec) return null;
+if (!niv){ const outside = S.niveau === 'Extérieur' || S.niveau === 'Toiture'; niv = (outside && !neutral.includes(prec)) ? 'Intérieur' : S.niveau; }
+return {niveau:niv, precision:prec};
+}
+const zoneStr = () => S.niveau + (S.precision ? ' · ' + S.precision : '');
+function toast(msg, ms){ const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), ms || 2400); }
+function sheet(html){ const l = $('#layer'); l.innerHTML = `<div class="sheet-bg"><div class="sheet">${html}</div></div>`;
+l.querySelector('.sheet-bg').onclick = e => { if (e.target.classList.contains('sheet-bg')) closeSheet(); }; return l.querySelector('.sheet'); }
+function closeSheet(){ $('#layer').innerHTML = ''; }
+function confirmSheet(msg, ok, fn){ const s = sheet(`<h2>${esc(msg)}</h2><div class="row"><button class="btn sec" id="cN" style="flex:1">Annuler</button><button class="btn danger" id="cY" style="flex:1">${esc(ok)}</button></div>`);
+s.querySelector('#cN').onclick = closeSheet; s.querySelector('#cY').onclick = () => { closeSheet(); fn(); }; }
+function urlOf(p){ if (!S.urls.has(p.id)) S.urls.set(p.id, URL.createObjectURL(p.blob)); return S.urls.get(p.id); }
+function annSvg(p, preview){
+const W = p.w, H = p.h, sw = Math.max(W, H) * 0.009; let out = '';
+for (const a of (p.annotations || []).concat(preview ? [preview] : [])){
+const x1 = a.x1*W, y1 = a.y1*H, x2 = a.x2*W, y2 = a.y2*H;
+if (a.type === 'box') out += `<rect x="${Math.min(x1,x2)}" y="${Math.min(y1,y2)}" width="${Math.abs(x2-x1)}" height="${Math.abs(y2-y1)}" fill="none" stroke="${RED}" stroke-width="${sw}" rx="${sw}"/>`;
+else { const g = Math.atan2(y2-y1, x2-x1), hl = sw*5, hw = sw*3.2, bx = x2 - Math.cos(g)*hl, by = y2 - Math.sin(g)*hl;
+out += `<line x1="${x1}" y1="${y1}" x2="${bx}" y2="${by}" stroke="${RED}" stroke-width="${sw}" stroke-linecap="round"/><polygon points="${x2},${y2} ${bx + Math.sin(g)*hw},${by - Math.cos(g)*hw} ${bx - Math.sin(g)*hw},${by + Math.cos(g)*hw}" fill="${RED}"/>`; }
+}
+return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${out}</svg>`;
+}
+const thumb = p => `<div class="ph" data-pid="${p.id}" style="aspect-ratio:${p.w}/${p.h}"><img loading="lazy" src="${urlOf(p)}" alt="">${annSvg(p)}</div>`;
+const constatsSorted = () => [...S.constats.values()].sort((a, b) => a.createdAt - b.createdAt);
+const photosOf = cid => [...S.photos.values()].filter(p => (p.constat || null) === cid).sort((a, b) => a.createdAt - b.createdAt);
+async function showHome(){
+stopCam(); S.view = 'home'; S.iid = null; $('#cam').classList.add('hidden');
+S.inspections = ((await all('insp')) || []).sort((a, b) => b.createdAt - a.createdAt);
+const app = $('#app');
+const secure = window.isSecureContext && navigator.mediaDevices && navigator.mediaDevices.getUserMedia;
+app.innerHTML = `<div class="top"><h1>Caméra rapide</h1></div><div class="page">
+${secure ? '' : '<div class="warn">La caméra intégrée n\'est pas disponible ici. Ouvre cette page dans Chrome.</div>'}
+<div class="card"><div style="font-weight:700;font-size:18px;margin-bottom:8px">Nouvelle inspection</div>
+<input id="addr" lang="fr-CA" placeholder="Adresse (ex. 907 rue Albert-Fillion, Gatineau)" autocomplete="off">
+<button class="btn" id="go" style="width:100%;margin-top:10px">Commencer</button></div>
+<div class="muted" style="margin:14px 2px 8px">Inspections sur ce téléphone</div>
+<div class="list">${S.inspections.map(i => `<button data-open="${i.id}"><b>${esc(i.adresse)}</b><small>${new Date(i.createdAt).toLocaleDateString('fr-CA', {day:'numeric', month:'long', year:'numeric'})}${i.sentAt ? ' · envoyée' : ''}</small></button>`).join('') || '<div class="empty">Aucune inspection pour l\'instant.</div>'}</div>
+</div>`;
+$('#go').onclick = async () => {
+const adresse = $('#addr').value.trim(); if (!adresse){ $('#addr').focus(); return; }
+const i = {id:newId('i'), adresse, createdAt:Date.now()}; await put('insp', i); openInsp(i.id, true);
+};
+app.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openInsp(b.dataset.open, false));
+}
+async function openInsp(id, toCam){
+S.iid = id; S.insp = (await all('insp')).find(i => i.id === id);
+S.constats = new Map((await byIid('constats', id)).map(c => [c.id, c]));
+S.photos = new Map((await byIid('photos', id)).map(p => [p.id, p]));
+S.activeId = LS.get('cr-active-' + id, null); if (S.activeId && !S.constats.has(S.activeId)) S.activeId = null;
+const z = LS.get('cr-zone-' + id, null); if (z){ S.niveau = z[0]; S.precision = z[1] || ''; } else { S.niveau = 'Extérieur'; S.precision = ''; }
+if (toCam) showCam(); else showGallery();
+}
+function setActive(cid){ S.activeId = cid; LS.set('cr-active-' + S.iid, cid); updateBanner(); }
+function saveZone(){ LS.set('cr-zone-' + S.iid, [S.niveau, S.precision]); }
+const CAM = { stream:null, track:null, caps:{}, digital:1, zoom:1, mainId:null, backs:[], wideIdx:-1, usingWide:false, gx:0, gy:9.8 };
+const video = $('#video');
+function stopCam(){ if (CAM.stream){ CAM.stream.getTracks().forEach(t => t.stop()); CAM.stream = null; CAM.track = null; } releaseWake(); }
+async function startStream(deviceId){
+if (CAM.stream){ CAM.stream.getTracks().forEach(t => t.stop()); CAM.stream = null; }
+const v = deviceId ? {deviceId:{exact:deviceId}} : {facingMode:{ideal:'environment'}};
+Object.assign(v, {width:{ideal:4032}, height:{ideal:3024}, aspectRatio:{ideal:4/3}});
+let st;
+try { st = await navigator.mediaDevices.getUserMedia({video:v, audio:false}); }
+catch(e){ st = await navigator.mediaDevices.getUserMedia({video: deviceId ? {deviceId:{exact:deviceId}} : {facingMode:'environment'}, audio:false}); }
+CAM.stream = st; CAM.track = st.getVideoTracks()[0];
+CAM.caps = (CAM.track.getCapabilities && CAM.track.getCapabilities()) || {};
+video.srcObject = st; try { await video.play(); } catch(e){}
+try { CAM.track.applyConstraints({advanced:[{focusMode:'continuous'}]}).catch(() => {}); } catch(e){}
+}
+async function showCam(){
+S.view = 'cam'; $('#app').innerHTML = ''; $('#cam').classList.remove('hidden');
+updateBanner(); updateCount(); buildZoom(); requestWake();
+const msg = $('#camMsg');
+if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ msg.textContent = "Caméra non disponible. Ouvre cette page dans Chrome."; msg.classList.remove('hidden'); return; }
+try {
+msg.classList.add('hidden');
+await startStream(CAM.mainId);
+if (!CAM.mainId){
+CAM.mainId = CAM.track.getSettings().deviceId || null;
+try {
+const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+CAM.backs = devs.filter(d => d.deviceId && d.deviceId !== CAM.mainId && !/front|avant|user|facing front/i.test(d.label));
+} catch(e){ CAM.backs = []; }
+}
+CAM.usingWide = false; await setZoom(LS.get('cr-zoom', 1), true);
+} catch(e){
+msg.innerHTML = `Impossible d'ouvrir la caméra.<br><small>Autorise l'appareil photo pour Chrome : Paramètres › Applications › Chrome › Autorisations › Appareil photo.</small>`;
+msg.classList.remove('hidden');
+}
+}
+function buildZoom(){
+$('#zoom').innerHTML = ZOOMS.map(z => `<button data-z="${z}">${String(z).replace('.', ',')}${z === 0.6 ? '' : '×'}</button>`).join('');
+$('#zoom').querySelectorAll('button').forEach(b => b.onclick = () => setZoom(+b.dataset.z));
+}
+function markZoom(z){ $('#zoom').querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.z === z)); }
+async function hwZoom(z){
+const c = CAM.caps.zoom;
+if (!c || !CAM.track) return 1;
+const v = Math.max(c.min, Math.min(c.max, z));
+try { await CAM.track.applyConstraints({advanced:[{zoom:v}]}); return v; } catch(e){ return 1; }
+}
+async function setZoom(z, silent){
+CAM.zoom = z; markZoom(z); LS.set('cr-zoom', z);
+if (z < 1){
+const c = CAM.caps.zoom;
+if (!CAM.usingWide && c && c.min <= z + 0.05){ await hwZoom(z); setDigital(1); return; }
+if (!CAM.backs.length){
+if (!silent) toast("Le 0,6× n'est pas accessible dans Chrome sur ce téléphone : j'ouvre l'appareil Samsung pour cette photo.", 3500);
+if (!silent) setTimeout(() => $('#nativeInput').click(), 300);
+CAM.zoom = 1; markZoom(1); LS.set('cr-zoom', 1); return;
+}
+CAM.wideIdx = silent ? Math.max(0, CAM.wideIdx) : (CAM.wideIdx + 1) % CAM.backs.length;
+try { await startStream(CAM.backs[CAM.wideIdx].deviceId); CAM.usingWide = true; setDigital(1);
+if (!silent && CAM.backs.length > 1) toast('Lentille ' + (CAM.wideIdx + 1) + '/' + CAM.backs.length + ' — touche 0,6 encore pour changer de lentille');
+} catch(e){ toast("Lentille grand-angle non accessible."); CAM.usingWide = false; await startStream(CAM.mainId); }
+return;
+}
+if (CAM.usingWide){ await startStream(CAM.mainId); CAM.usingWide = false; }
+const got = await hwZoom(z);
+setDigital(Math.max(1, z / (got || 1)));
+}
+function setDigital(d){ CAM.digital = d; video.style.transform = d > 1.001 ? `scale(${d})` : ''; }
+window.addEventListener('devicemotion', e => { const g = e.accelerationIncludingGravity; if (g && g.x != null){ CAM.gx = CAM.gx*0.6 + g.x*0.4; CAM.gy = CAM.gy*0.6 + g.y*0.4; } });
+function deviceAngle(){ const x = CAM.gx, y = CAM.gy; if (Math.abs(x) > Math.abs(y) + 1.5) return x > 0 ? 90 : 270; if (y < -3) return 180; return 0; }
+function screenAngle(){ try { return (screen.orientation && screen.orientation.angle) || (typeof window.orientation === 'number' ? (window.orientation + 360) % 360 : 0); } catch(e){ return 0; } }
+let shooting = 0;
+async function shoot(){
+if (!CAM.track || !video.videoWidth){ toast('Caméra pas prête.'); return; }
+const vw = video.videoWidth, vh = video.videoHeight, d = CAM.digital;
+const sw = vw / d, sh = vh / d, sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+const rel = (deviceAngle() - screenAngle() + 360) % 360;
+const rot = rel === 90 ? -Math.PI/2 : rel === 270 ? Math.PI/2 : rel === 180 ? Math.PI : 0;
+const swap = rel === 90 || rel === 270;
+const k = Math.min(1, MAXDIM / Math.max(sw, sh));
+const ow = Math.round(sw * k), oh = Math.round(sh * k);
+const c = document.createElement('canvas'); c.width = swap ? oh : ow; c.height = swap ? ow : oh;
+const g = c.getContext('2d'); g.translate(c.width/2, c.height/2); g.rotate(rot); g.drawImage(video, sx, sy, sw, sh, -ow/2, -oh/2, ow, oh);
+const f = $('#flash'); f.style.opacity = '.7'; setTimeout(() => f.style.opacity = '0', 90);
+try { navigator.vibrate && navigator.vibrate(25); } catch(e){}
+shooting++;
+c.toBlob(async blob => {
+try { await savePhoto(blob, c.width, c.height); } catch(e){ toast("Erreur d'enregistrement de la photo."); }
+shooting--;
+}, 'image/jpeg', 0.88);
+}
+async function savePhoto(blob, w, h){
+const p = {id:newId('p'), iid:S.iid, constat:S.activeId || null, zone: S.activeId && S.constats.get(S.activeId) ? S.constats.get(S.activeId).zone : zoneStr(),
+createdAt:Date.now(), w, h, annotations:[], blob};
+await put('photos', p); S.photos.set(p.id, p); updateCount();
+$('#lastThumb').src = urlOf(p);
+}
+async function nativePhoto(file){
+try {
+let bmp; try { bmp = await createImageBitmap(file, {imageOrientation:'from-image'}); } catch(e){ bmp = await new Promise((r, j) => { const im = new Image(); im.onload = () => r(im); im.onerror = j; im.src = URL.createObjectURL(file); }); }
+const w0 = bmp.width || bmp.naturalWidth, h0 = bmp.height || bmp.naturalHeight, k = Math.min(1, MAXDIM / Math.max(w0, h0));
+const c = document.createElement('canvas'); c.width = Math.round(w0*k); c.height = Math.round(h0*k); c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.88)); await savePhoto(blob, c.width, c.height);
+toast('Photo 0,6× ajoutée.');
+} catch(e){ toast('Impossible de lire cette photo.'); }
+}
+function updateBanner(){
+const b = $('#banner'), act = S.activeId && S.constats.get(S.activeId);
+b.className = act ? 'on' : '';
+b.innerHTML = act ? `● ${esc(act.note || 'Constat')}<small>${esc(act.zone)}</small>` : `Non classées<small>📍 ${esc(zoneStr())}</small>`;
+$('#camDone').classList.toggle('hidden', !act);
+}
+function updateCount(){ const n = S.activeId ? photosOf(S.activeId).length : photosOf(null).length; $('#count').textContent = (S.activeId ? 'Ce constat : ' : 'Non classées : ') + n + ' · Total : ' + S.photos.size; }
+async function requestWake(){ try { if ('wakeLock' in navigator) S.wake = await navigator.wakeLock.request('screen'); } catch(e){} }
+function releaseWake(){ try { S.wake && S.wake.release(); } catch(e){} S.wake = null; }
+document.addEventListener('visibilitychange', () => {
+if (S.view !== 'cam') return;
+if (document.hidden) stopCam(); else showCam();
+});
+$('#shutter').onclick = shoot;
+$('#camBack').onclick = () => showHome();
+$('#camDone').onclick = () => { setActive(null); updateCount(); };
+$('#camConstat').onclick = () => constatSheet(null);
+$('#camJoin').onclick = () => pickConstat('Joindre les prochaines photos à…', false, cid => { if (cid){ setActive(cid); updateCount(); } });
+$('#camGallery').onclick = () => { stopCam(); showGallery(); };
+$('#camFin').onclick = () => sendSheet();
+$('#nativeInput').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) nativePhoto(f); };
+function constatSheet(c){
+const isNew = !c;
+const s = sheet(`<h2>${isNew ? 'Nouveau constat' : 'Modifier le constat'}</h2>
+<div class="muted" style="margin-bottom:6px">Dis l'endroit dans ta phrase (« côté droit », « sous-sol », « salle de bain ») : la zone se met toute seule.</div>
+<textarea id="cNote" lang="fr-CA" autocapitalize="sentences" placeholder="Ex. : « fissure de fondation côté droit »">${esc(c ? c.note : '')}</textarea>
+<div class="row" style="margin-top:12px"><button class="btn sec" id="cCancel" style="flex:1">Annuler</button><button class="btn" id="cSave" style="flex:2">${isNew ? 'Créer et activer' : 'Enregistrer'}</button></div>
+${isNew ? '' : '<div class="row" style="margin-top:10px"><button class="btn danger" id="cDel" style="flex:1">Supprimer le constat</button></div>'}`);
+const ta = s.querySelector('#cNote'); setTimeout(() => ta.focus(), 60);
+s.querySelector('#cCancel').onclick = closeSheet;
+s.querySelector('#cSave').onclick = async () => {
+const note = ta.value.trim(), z = parseZone(note);
+if (z){ S.niveau = z.niveau; S.precision = z.precision; saveZone(); }
+if (isNew){ const n = {id:newId('c'), iid:S.iid, note, zone:zoneStr(), createdAt:Date.now()}; await put('constats', n); S.constats.set(n.id, n); closeSheet(); setActive(n.id); }
+else { c.note = note; if (z) c.zone = zoneStr(); await put('constats', c); closeSheet(); }
+updateBanner(); updateCount(); if (S.view === 'gallery') showGallery();
+};
+if (!isNew) s.querySelector('#cDel').onclick = () => confirmSheet('Supprimer ce constat ? Ses photos iront dans « Non classées ».', 'Supprimer', async () => {
+for (const p of photosOf(c.id)){ p.constat = null; await put('photos', p); }
+await del('constats', c.id); S.constats.delete(c.id); if (S.activeId === c.id) setActive(null); showGallery();
+});
+}
+function pickConstat(title, loose, fn){
+const list = constatsSorted().sort((a, b) => b.createdAt - a.createdAt);
+const s = sheet(`<h2>${esc(title)}</h2><div class="list">
+${loose ? '<button data-c=""><b>Non classées</b><small>Retirer du constat</small></button>' : ''}
+${list.map(c => `<button data-c="${c.id}"><b>${esc(c.note || 'Constat sans note')}</b><small>${esc(c.zone)} · ${photosOf(c.id).length} photo(s)</small></button>`).join('') || '<div class="empty">Aucun constat encore.</div>'}
+</div><button class="btn sec" id="pkC" style="width:100%">Annuler</button>`);
+s.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { closeSheet(); fn(b.dataset.c || null); });
+s.querySelector('#pkC').onclick = closeSheet;
+}
+function showGallery(){
+stopCam(); S.view = 'gallery'; $('#cam').classList.add('hidden');
+const loose = photosOf(null);
+$('#app').innerHTML = `<div class="top"><button id="gHome">◀</button><h1>${esc(S.insp ? S.insp.adresse : '')}</h1><button id="gSend">Envoyer</button></div>
+<div class="page">
+<button class="btn" id="gCam" style="width:100%;margin-bottom:12px;font-size:18px;padding:16px">📷 Retour à la caméra</button>
+${loose.length ? `<div class="card"><div class="cHead"><div><div class="t">Non classées</div><div class="muted">${loose.length} photo(s) · touche une photo pour la classer ou l'annoter</div></div></div><div class="thumbs">${loose.map(thumb).join('')}</div></div>` : ''}
+${constatsSorted().map(c => { const ph = photosOf(c.id); return `<div class="card" ${c.id === S.activeId ? 'style="border:3px solid var(--accent)"' : ''}>
+<div class="cHead"><div><div class="t">${esc(c.note || 'Constat sans note')}</div><div class="muted">${esc(c.zone)} · ${ph.length} photo(s)</div></div><button data-edit="${c.id}">Modifier</button></div>
+<div class="thumbs">${ph.map(thumb).join('')}</div></div>`; }).join('')}
+${!loose.length && !S.constats.size ? '<div class="empty">Aucune photo encore.</div>' : ''}
+</div>`;
+$('#gHome').onclick = showHome; $('#gCam').onclick = showCam; $('#gSend').onclick = sendSheet;
+document.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => constatSheet(S.constats.get(b.dataset.edit)));
+document.querySelectorAll('.ph').forEach(el => el.onclick = () => openEditor(S.photos.get(el.dataset.pid)));
+}
+function openEditor(p){
+if (!p) return;
+let tool = 'arrow', drawing = null; const anns = (p.annotations || []).map(a => ({...a}));
+const c = p.constat && S.constats.get(p.constat), l = $('#layer');
+l.innerHTML = `<div class="editor"><div class="tb"><button id="tA" class="on">➜ Flèche</button><button id="tB">▢ Encadré</button><button id="tU">↶ Annuler</button><button id="tC">Tout effacer</button></div>
+<div class="info">${esc(c ? (c.note || 'Constat') : 'Non classée')} · ${esc(p.zone)} — glisse le doigt vers le problème.</div>
+<div class="wrap" id="wrap"><div class="stage" id="stage"><img src="${urlOf(p)}" alt="">${annSvg({...p, annotations:anns})}</div></div>
+<div class="bb"><button id="eM">Déplacer vers…</button><button id="eD">Supprimer</button><button id="eOk" class="done">Terminé</button></div></div>`;
+const wrap = l.querySelector('#wrap'), stage = l.querySelector('#stage');
+const fit = () => { const W = wrap.clientWidth - 8, H = wrap.clientHeight - 8, r = p.w / p.h; let w = W, h = W / r; if (h > H){ h = H; w = H * r; } stage.style.width = w + 'px'; stage.style.height = h + 'px'; };
+fit(); window.addEventListener('resize', fit);
+const redraw = pv => { stage.querySelector('svg').outerHTML = annSvg({...p, annotations:anns}, pv); };
+const setT = t => { tool = t; l.querySelector('#tA').classList.toggle('on', t === 'arrow'); l.querySelector('#tB').classList.toggle('on', t === 'box'); };
+l.querySelector('#tA').onclick = () => setT('arrow'); l.querySelector('#tB').onclick = () => setT('box');
+l.querySelector('#tU').onclick = () => { anns.pop(); redraw(); }; l.querySelector('#tC').onclick = () => { anns.length = 0; redraw(); };
+const norm = e => { const r = stage.getBoundingClientRect(); return [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))]; };
+stage.addEventListener('pointerdown', e => { e.preventDefault(); stage.setPointerCapture(e.pointerId); const [x, y] = norm(e); drawing = {type:tool, x1:x, y1:y, x2:x, y2:y}; });
+stage.addEventListener('pointermove', e => { if (!drawing) return; const [x, y] = norm(e); drawing.x2 = x; drawing.y2 = y; redraw(drawing); });
+stage.addEventListener('pointerup', () => { if (!drawing) return; if (Math.hypot(drawing.x2 - drawing.x1, drawing.y2 - drawing.y1) > 0.03){ const r4 = v => Math.round(v*10000)/10000; anns.push({type:drawing.type, x1:r4(drawing.x1), y1:r4(drawing.y1), x2:r4(drawing.x2), y2:r4(drawing.y2)}); } drawing = null; redraw(); });
+const close = () => { window.removeEventListener('resize', fit); l.innerHTML = ''; };
+const commit = async () => { if (JSON.stringify(anns) !== JSON.stringify(p.annotations || [])){ p.annotations = anns; await put('photos', p); } };
+l.querySelector('#eOk').onclick = async () => { await commit(); close(); showGallery(); };
+l.querySelector('#eM').onclick = async () => { await commit(); close(); pickConstat('Déplacer la photo vers…', true, async cid => { p.constat = cid; if (cid) p.zone = S.constats.get(cid).zone; await put('photos', p); showGallery(); }); };
+l.querySelector('#eD').onclick = () => { close(); confirmSheet('Supprimer cette photo ?', 'Supprimer', async () => { await del('photos', p.id); S.photos.delete(p.id); showGallery(); }); };
+}
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u8){ let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+async function makeZip(files){ // files: [{name, data:Uint8Array}] — stockage sans compression (les JPEG le sont déjà)
+const enc = new TextEncoder(), parts = [], central = []; let off = 0;
+for (const f of files){
+const nm = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+const h = new DataView(new ArrayBuffer(30));
+h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true); h.setUint16(8, 0, true);
+h.setUint32(14, crc, true); h.setUint32(18, sz, true); h.setUint32(22, sz, true); h.setUint16(26, nm.length, true);
+parts.push(h.buffer, nm, f.data);
+const cd = new DataView(new ArrayBuffer(46));
+cd.setUint32(0, 0x02014b50, true); cd.setUint16(4, 20, true); cd.setUint16(6, 20, true); cd.setUint16(8, 0x0800, true);
+cd.setUint32(16, crc, true); cd.setUint32(20, sz, true); cd.setUint32(24, sz, true); cd.setUint16(28, nm.length, true); cd.setUint32(42, off, true);
+central.push(cd.buffer, nm); off += 30 + nm.length + sz;
+}
+const cdSize = central.reduce((s, b) => s + (b.byteLength || b.length), 0);
+const e = new DataView(new ArrayBuffer(22));
+e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+return new Blob([...parts, ...central, e.buffer], {type:'application/zip'});
+}
+function slug(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'inspection'; }
+function sendSheet(){
+stopCam();
+const nc = S.constats.size, np = S.photos.size, nl = photosOf(null).length;
+const sz = [...S.photos.values()].reduce((s, p) => s + (p.blob ? p.blob.size : 0), 0);
+const s = sheet(`<h2>Envoyer l'inspection</h2>
+<p><b>${nc}</b> constat(s) · <b>${np}</b> photo(s)${nl ? ` dont <b>${nl}</b> non classée(s)` : ''} · ${(sz/1048576).toFixed(0)} Mo</p>
+<label class="row" style="margin:6px 0 14px;gap:10px"><input type="checkbox" id="onlyC" style="width:22px;height:22px" ${nl > 20 ? 'checked' : ''}> <span>Envoyer seulement les photos des constats</span></label>
+<button class="btn" id="sGo" style="width:100%;font-size:18px">📦 Créer le fichier d'envoi</button>
+<div class="muted" style="margin-top:12px">Ensuite : ouvre <b>Caméra terrain</b> dans Chrome, touche <b>📦 Importer une inspection</b> et choisis ce fichier. Puis écris à Claude : « Constats pour le ${esc(S.insp ? S.insp.adresse : '')} ».</div>
+<button class="btn sec" id="sNo" style="width:100%;margin-top:12px">Fermer</button>`);
+s.querySelector('#sNo').onclick = () => { closeSheet(); if (S.view === 'cam') showCam(); };
+s.querySelector('#sGo').onclick = async () => {
+const btn = s.querySelector('#sGo'); btn.disabled = true; btn.textContent = 'Préparation…';
+try {
+const only = s.querySelector('#onlyC').checked;
+const photos = [...S.photos.values()].filter(p => !only || p.constat).sort((a, b) => a.createdAt - b.createdAt);
+const meta = { format:'camera-rapide/1', inspection:{id:S.insp.id, adresse:S.insp.adresse, createdAt:S.insp.createdAt},
+constats: constatsSorted().map(c => ({id:c.id, note:c.note, zone:c.zone, createdAt:c.createdAt})),
+photos: photos.map(p => ({id:p.id, file:'photos/' + p.id + '.jpg', constat:p.constat || null, zone:p.zone, createdAt:p.createdAt, w:p.w, h:p.h, annotations:p.annotations || []})) };
+const files = [{name:'inspection.json', data:new TextEncoder().encode(JSON.stringify(meta))}];
+for (const p of photos) files.push({name:'photos/' + p.id + '.jpg', data:new Uint8Array(await p.blob.arrayBuffer())});
+const zip = await makeZip(files);
+const name = 'inspection-' + slug(S.insp.adresse) + '.zip';
+const file = new File([zip], name, {type:'application/zip'});
+S.insp.sentAt = Date.now(); await put('insp', S.insp);
+const a = document.createElement('a'); a.href = URL.createObjectURL(zip); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+btn.textContent = '✓ Enregistré dans Téléchargements';
+if (navigator.canShare && navigator.canShare({files:[file]})){
+const sh = document.createElement('button'); sh.className = 'btn sec'; sh.style.cssText = 'width:100%;margin-top:10px'; sh.textContent = 'Partager le fichier (Drive, courriel…)';
+sh.onclick = () => navigator.share({files:[file], title:name}).catch(() => {});
+btn.after(sh);
+}
+} catch(e){ btn.disabled = false; btn.textContent = '📦 Réessayer'; toast("Erreur pendant la préparation de l'envoi."); }
+};
+}
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+showHome();
+window.__S = S;
+})();
+</script>
+</body>
+</html>
